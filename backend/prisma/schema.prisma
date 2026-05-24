@@ -1,0 +1,64 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  createdAt DateTime @default(now())
+
+  snippets  Snippet[]
+  comments  Comment[]
+  reactions Reaction[]
+}
+
+model Snippet {
+  id        String   @id @default(cuid())
+  title     String
+  code      String   @db.Text
+  language  String   @default("javascript")
+  shareId   String   @unique @default(cuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  comments  Comment[]
+  reactions Reaction[]
+}
+
+model Comment {
+  id         String   @id @default(cuid())
+  content    String
+  lineNumber Int
+  createdAt  DateTime @default(now())
+
+  snippetId  String
+  snippet    Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+
+  authorId   String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  emoji     String
+  createdAt DateTime @default(now())
+
+  snippetId String
+  snippet   Snippet  @relation(fields: [snippetId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@unique([snippetId, authorId, emoji])
+}
