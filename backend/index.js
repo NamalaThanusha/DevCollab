@@ -1,4 +1,3 @@
-// server/index.js
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
@@ -9,6 +8,7 @@ import corsOptions from './src/config/cors.js'
 import authRoutes from './src/routes/auth.js'
 import snippetRoutes from './src/routes/snippets.js'
 import commentRoutes from './src/routes/comments.js'
+import reactionRoutes from './src/routes/reactions.js'
 import setupSocket from './src/socket/index.js'
 
 dotenv.config()
@@ -25,9 +25,10 @@ app.use(cors(corsOptions))
 app.use(express.json())
 
 // Routes
-app.use('/api/auth', authRoutes)
-app.use('/api/snippets', snippetRoutes)
-app.use('/api/comments', commentRoutes)
+app.use('/api/auth',      authRoutes)
+app.use('/api/snippets',  snippetRoutes)
+app.use('/api/comments',  commentRoutes)
+app.use('/api/reactions', reactionRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {

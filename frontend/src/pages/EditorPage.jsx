@@ -1,7 +1,19 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import {
+  useState,
+  useEffect,
+  useRef,
+} from 'react'
+
+import {
+  useParams,
+  useNavigate,
+} from 'react-router-dom'
+
 import { toast } from 'react-hot-toast'
+
 import Editor from '@monaco-editor/react'
+
+import { io } from 'socket.io-client'
 
 import {
   createSnippet,
@@ -10,8 +22,11 @@ import {
 } from '../api/snippets.js'
 
 import useAuth from '../hooks/useAuth.js'
+
 import Navbar from '../components/Navbar.jsx'
 import LoadingSpinner from '../components/LoadingSpinner.jsx'
+import CommentsPanel from '../components/CommentsPanel.jsx'
+import ReactionsBar from '../components/ReactionsBar.jsx'
 
 import {
   LANGUAGES,
@@ -19,17 +34,24 @@ import {
 } from '../constants.js'
 
 const EditorPage = () => {
-  const { id, shareId } = useParams()
 
-  const navigate = useNavigate()
+  const { id, shareId } =
+    useParams()
 
-  const { user } = useAuth()
+  const navigate =
+    useNavigate()
 
-  // Shared view?
-  const isShareView = Boolean(shareId)
+  const { user } =
+    useAuth()
 
-  // New snippet?
-  const isNew = id === 'new'
+  const socketRef =
+    useRef(null)
+
+  const isShareView =
+    Boolean(shareId)
+
+  const isNew =
+    id === 'new'
 
   const [snippet, setSnippet] =
     useState(null)
@@ -38,7 +60,9 @@ const EditorPage = () => {
     useState('')
 
   const [code, setCode] =
-    useState(DEFAULT_CODE.javascript)
+    useState(
+      DEFAULT_CODE.javascript
+    )
 
   const [language, setLanguage] =
     useState('javascript')
@@ -52,49 +76,78 @@ const EditorPage = () => {
   const [shareLink, setShareLink] =
     useState('')
 
-  // Load snippet if NOT new
+  const [viewerCount, setViewerCount] =
+    useState(1)
+
+  const [showComments, setShowComments] =
+    useState(true)
+
+  const [socketConnected, setSocketConnected] =
+    useState(false)
+
+  const [socket, setSocket] =
+    useState(null)
+
+  // IMPORTANT FIX
+  const snippetRoomId =
+    snippet?.id || id
+
+  // LOAD SNIPPET
   useEffect(() => {
+
     if (isNew) return
 
-    const loadSnippet = async () => {
-      try {
-        let res
+    const loadSnippet =
+      async () => {
 
-        if (isShareView) {
-          res =
-            await getSnippetByShareId(
-              shareId
-            )
-        } else {
-          res =
-            await getSnippetById(id)
+        try {
+
+          let res
+
+          if (isShareView) {
+
+            res =
+              await getSnippetByShareId(
+                shareId
+              )
+
+          } else {
+
+            res =
+              await getSnippetById(id)
+          }
+
+          const s =
+            res.data.snippet
+
+          setSnippet(s)
+
+          setTitle(s.title)
+
+          setCode(s.code)
+
+          setLanguage(s.language)
+
+          setShareLink(
+            `${window.location.origin}/share/${s.shareId}`
+          )
+
+        } catch {
+
+          toast.error(
+            'Snippet not found'
+          )
+
+          navigate('/dashboard')
+
+        } finally {
+
+          setLoading(false)
         }
-
-        const s = res.data.snippet
-
-        setSnippet(s)
-
-        setTitle(s.title)
-
-        setCode(s.code)
-
-        setLanguage(s.language)
-
-        setShareLink(
-          `${window.location.origin}/share/${s.shareId}`
-        )
-      } catch {
-        toast.error(
-          'Snippet not found'
-        )
-
-        navigate('/dashboard')
-      } finally {
-        setLoading(false)
       }
-    }
 
     loadSnippet()
+
   }, [
     id,
     shareId,
@@ -103,91 +156,193 @@ const EditorPage = () => {
     navigate,
   ])
 
-  // Change language
-  const handleLanguageChange = (
-    newLanguage
-  ) => {
-    setLanguage(newLanguage)
+  // SOCKET
+  useEffect(() => {
 
-    if (isNew) {
-      setCode(
-        DEFAULT_CODE[newLanguage] ||
-          DEFAULT_CODE.default
-      )
-    }
-  }
-
-  // Save snippet
-  const handleSave = async () => {
-    if (!title.trim()) {
-      toast.error(
-        'Please enter a title'
-      )
-
+    if (
+      isNew ||
+      !snippetRoomId
+    ) {
       return
     }
 
-    if (!code.trim()) {
-      toast.error(
-        'Code cannot be empty'
-      )
+    const newSocket = io(
+      'http://localhost:5000',
+      {
+        transports: [
+          'websocket',
+          'polling',
+        ],
+      }
+    )
 
-      return
-    }
+    socketRef.current =
+      newSocket
 
-    setSaving(true)
+    Promise.resolve().then(() => {
+      setSocket(newSocket)
+    })
 
-    try {
-      const res =
-        await createSnippet({
-          title: title.trim(),
-          code,
-          language,
-        })
+    newSocket.on(
+      'connect',
+      () => {
 
-      const newSnippet =
-        res.data.snippet
+        console.log(
+          '[Socket Connected]',
+          newSocket.id
+        )
 
-      toast.success(
-        'Snippet saved!'
-      )
+        newSocket.emit(
+          'join-snippet',
+          {
+            snippetId:
+              snippetRoomId,
 
-      navigate(
-        `/editor/${newSnippet.id}`,
+            username:
+              user?.username ||
+              'Guest',
+          }
+        )
+
+        setSocketConnected(true)
+      }
+    )
+
+    newSocket.on(
+      'viewer-count',
+      ({ count }) => {
+
+        setViewerCount(count)
+      }
+    )
+
+    return () => {
+
+      newSocket.emit(
+        'leave-snippet',
         {
-          replace: true,
+          snippetId:
+            snippetRoomId,
         }
       )
-    } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        'Failed to save snippet'
 
-      toast.error(message)
-    } finally {
-      setSaving(false)
+      newSocket.disconnect()
+
+      socketRef.current =
+        null
+
+      setSocket(null)
+
+      setSocketConnected(false)
     }
-  }
 
-  // Copy share link
-  const handleCopyShareLink = () => {
-    navigator.clipboard.writeText(
-      shareLink
-    )
+  }, [
+    isNew,
+    snippetRoomId,
+    user?.username,
+  ])
 
-    toast.success(
-      'Share link copied!'
-    )
-  }
+  // LANGUAGE
+  const handleLanguageChange =
+    (newLang) => {
 
-  // Current user author?
+      setLanguage(newLang)
+
+      if (isNew) {
+
+        setCode(
+          DEFAULT_CODE[
+            newLang
+          ] ||
+          DEFAULT_CODE.default
+        )
+      }
+    }
+
+  // SAVE
+  const handleSave =
+    async () => {
+
+      if (
+        !title.trim()
+      ) {
+
+        toast.error(
+          'Please add a title'
+        )
+
+        return
+      }
+
+      if (
+        !code.trim()
+      ) {
+
+        toast.error(
+          'Code cannot be empty'
+        )
+
+        return
+      }
+
+      setSaving(true)
+
+      try {
+
+        const res =
+          await createSnippet({
+            title:
+              title.trim(),
+            code,
+            language,
+          })
+
+        toast.success(
+          'Snippet saved!'
+        )
+
+        navigate(
+          `/editor/${res.data.snippet.id}`,
+          {
+            replace: true,
+          }
+        )
+
+      } catch (err) {
+
+        toast.error(
+          err.response?.data
+            ?.message ||
+          'Failed to save'
+        )
+
+      } finally {
+
+        setSaving(false)
+      }
+    }
+
+  // SHARE
+  const handleCopyShareLink =
+    () => {
+
+      navigator.clipboard.writeText(
+        shareLink
+      )
+
+      toast.success(
+        'Share link copied!'
+      )
+    }
+
   const isAuthor =
     user &&
     snippet &&
-    snippet.author.id === user.id
+    snippet.author.id ===
+      user.id
 
-  // Loading screen
   if (loading) {
+
     return (
       <div className="min-h-screen bg-[#0d1117] flex items-center justify-center">
         <LoadingSpinner size="lg" />
@@ -196,53 +351,18 @@ const EditorPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0d1117] flex flex-col">
+    <div className="h-screen bg-[#0d1117] flex flex-col overflow-hidden">
 
-      {/* Navbar */}
-      {!isShareView && <Navbar />}
-
-      {/* Share banner */}
-      {isShareView && (
-        <div className="bg-[#161b22] border-b border-[#30363d] px-6 py-3 flex items-center justify-between">
-
-          <span className="text-white font-semibold text-lg">
-            Dev
-            <span className="text-blue-500">
-              Collab
-            </span>
-          </span>
-
-          <div className="flex items-center gap-3">
-
-            <span className="text-gray-400 text-sm">
-              Shared by{' '}
-              <span className="text-white">
-                @{snippet?.author.username}
-              </span>
-            </span>
-
-            {!user && (
-              <button
-                onClick={() =>
-                  navigate('/register')
-                }
-                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3 py-1.5 rounded-lg transition-colors"
-              >
-                Sign up free
-              </button>
-            )}
-
-          </div>
-
-        </div>
+      {!isShareView && (
+        <Navbar />
       )}
 
-      {/* Toolbar */}
-      <div className="bg-[#161b22] border-b border-[#30363d] px-6 py-3 flex items-center gap-4">
+      {/* TOPBAR */}
+      <div className="bg-[#161b22] border-b border-[#30363d] px-4 py-2.5 flex items-center gap-3 shrink-0">
 
-        {/* Title */}
         {(isNew || isAuthor) &&
         !isShareView ? (
+
           <input
             type="text"
             value={title}
@@ -254,13 +374,27 @@ const EditorPage = () => {
             placeholder="Snippet title..."
             className="flex-1 bg-transparent text-white placeholder-gray-600 text-sm font-medium focus:outline-none"
           />
+
         ) : (
+
           <h2 className="flex-1 text-white text-sm font-medium truncate">
             {title}
           </h2>
         )}
 
-        {/* Language */}
+        {!isNew && (
+
+          <div className="flex items-center gap-1.5 text-gray-500 text-xs">
+
+            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+
+            <span>
+              {viewerCount} viewing
+            </span>
+
+          </div>
+        )}
+
         <select
           value={language}
           onChange={(e) =>
@@ -268,107 +402,134 @@ const EditorPage = () => {
               e.target.value
             )
           }
-          disabled={isShareView}
-          className="bg-[#21262d] border border-[#30363d] text-gray-300 text-sm rounded-lg px-3 py-1.5 focus:outline-none focus:border-blue-500 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="bg-[#21262d] border border-[#30363d] text-gray-300 text-xs rounded-lg px-2.5 py-1.5"
         >
 
-          {LANGUAGES.map((lang) => (
-            <option
-              key={lang.value}
-              value={lang.value}
-            >
-              {lang.label}
-            </option>
-          ))}
+          {LANGUAGES.map(
+            (lang) => (
+
+              <option
+                key={lang.value}
+                value={lang.value}
+              >
+                {lang.label}
+              </option>
+            )
+          )}
 
         </select>
 
-        {/* Share button */}
+        {!isNew && (
+
+          <button
+            onClick={() =>
+              setShowComments(
+                !showComments
+              )
+            }
+            className="text-xs px-2.5 py-1.5 rounded-lg border"
+          >
+            💬 Comments
+          </button>
+        )}
+
         {shareLink && (
+
           <button
             onClick={
               handleCopyShareLink
             }
-            className="flex items-center gap-2 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-gray-300 text-sm px-3 py-1.5 rounded-lg transition-colors"
+            className="text-xs px-2.5 py-1.5 rounded-lg border"
           >
             🔗 Share
           </button>
         )}
 
-        {/* Save button */}
         {isNew && (
+
           <button
-            onClick={handleSave}
+            onClick={
+              handleSave
+            }
             disabled={saving}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors"
+            className="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-lg"
           >
-
-            {saving ? (
-              <>
-                <LoadingSpinner size="sm" />
-
-                <span>
-                  Saving...
-                </span>
-              </>
-            ) : (
-              'Save Snippet'
-            )}
-
+            {saving
+              ? 'Saving...'
+              : 'Save Snippet'}
           </button>
         )}
 
       </div>
 
-      {/* Monaco Editor */}
-      <div className="flex-1">
+      {/* MAIN */}
+      <div className="flex-1 flex overflow-hidden">
 
-        <Editor
-          height="calc(100vh - 120px)"
-          language={language}
-          value={code}
-          onChange={(value) =>
-            setCode(value || '')
-          }
-          theme="vs-dark"
-          options={{
-            fontSize: 14,
+        {/* EDITOR */}
+        <div className="flex-1 flex flex-col overflow-hidden">
 
-            fontFamily:
-              "'JetBrains Mono', 'Fira Code', monospace",
+          <div className="flex-1">
 
-            fontLigatures: true,
+            <Editor
+              height="100%"
+              language={language}
+              value={code}
+              onChange={(value) =>
+                setCode(
+                  value || ''
+                )
+              }
+              theme="vs-dark"
+              options={{
+                automaticLayout: true,
+                minimap: {
+                  enabled: false,
+                },
+                readOnly:
+                  isShareView,
+              }}
+            />
 
-            minimap: {
-              enabled: false,
-            },
+          </div>
 
-            scrollBeyondLastLine: false,
+          {!isNew &&
+            socketConnected &&
+            socket && (
 
-            lineNumbers: 'on',
+              <div className="bg-[#161b22] border-t border-[#30363d] px-4 py-2.5">
 
-            roundedSelection: true,
+                <ReactionsBar
+                  snippetId={
+                    snippetRoomId
+                  }
+                  socket={socket}
+                />
 
-            cursorStyle: 'line',
+              </div>
+            )}
 
-            automaticLayout: true,
+        </div>
 
-            tabSize: 2,
+        {/* COMMENTS */}
+        {!isNew &&
+          showComments &&
+          socketConnected &&
+          socket && (
 
-            wordWrap: 'on',
+            <div className="w-80 shrink-0 flex flex-col overflow-hidden">
 
-            padding: {
-              top: 16,
-              bottom: 16,
-            },
+              <CommentsPanel
+                snippetId={
+                  snippetRoomId
+                }
+                socket={socket}
+                isReadOnly={
+                  isShareView
+                }
+              />
 
-            readOnly: isShareView,
-
-            smoothScrolling: true,
-
-            cursorBlinking: 'smooth',
-          }}
-        />
+            </div>
+          )}
 
       </div>
 
