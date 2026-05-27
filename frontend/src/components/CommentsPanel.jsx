@@ -10,7 +10,7 @@ import {
   createComment,
 } from '../api/comments.js'
 
-import useAuth from '../hooks/useAuth.js'
+
 
 const CommentsPanel = ({
   snippetId,
@@ -18,8 +18,7 @@ const CommentsPanel = ({
   isReadOnly = false,
 }) => {
 
-  const { user } =
-    useAuth()
+
 
   const [comments, setComments] =
     useState([])
@@ -68,7 +67,7 @@ const CommentsPanel = ({
 
   }, [snippetId])
 
-  // SOCKET LISTENERS
+  // SOCKET LISTENER
   useEffect(() => {
 
     if (!socket) return
@@ -141,6 +140,7 @@ const CommentsPanel = ({
           newComment,
         ])
 
+        // REALTIME BROADCAST
         if (socket) {
 
           socket.emit(
@@ -159,11 +159,13 @@ const CommentsPanel = ({
           'Comment added'
         )
 
-      } catch {
+      } catch (err) {
 
-        toast.error(
+        const message =
+          err.response?.data?.message ||
           'Failed to add comment'
-        )
+
+        toast.error(message)
       }
     }
 
@@ -182,8 +184,9 @@ const CommentsPanel = ({
       {/* HEADER */}
       <div className="px-4 py-3 border-b border-[#30363d]">
 
-        <h3 className="text-white font-semibold">
+        <h3 className="text-white font-semibold flex items-center">
           Comments
+
           <span className="ml-2 text-xs bg-[#30363d] text-gray-300 px-2 py-0.5 rounded-full">
             {comments.length}
           </span>
@@ -214,7 +217,7 @@ const CommentsPanel = ({
                 <div className="flex items-center gap-2">
 
                   <span className="text-blue-400 text-sm font-medium">
-                    @{comment.author?.username}
+                    @{comment.author?.username || 'Guest'}
                   </span>
 
                   <span className="text-xs bg-[#21262d] text-gray-400 px-2 py-0.5 rounded">
@@ -236,7 +239,7 @@ const CommentsPanel = ({
       </div>
 
       {/* FORM */}
-      {!isReadOnly && user && (
+      {!isReadOnly && (
 
         <form
           onSubmit={handleSubmit}

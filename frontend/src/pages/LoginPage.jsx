@@ -13,10 +13,14 @@ const LoginPage = () => {
     email: '',
     password: '',
   })
+
   const [loading, setLoading] = useState(false)
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value })
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value,
+    })
   }
 
   const handleSubmit = async (e) => {
@@ -32,54 +36,94 @@ const LoginPage = () => {
     setLoading(true)
 
     try {
-      const res = await loginUser({ email, password })
-      login(res.data.token, res.data.user)
-      toast.success(`Welcome back, ${res.data.user.username}!`)
+      const res = await loginUser({
+        email,
+        password,
+      })
+
+      login(
+        res.data.token,
+        res.data.user
+      )
+
+      toast.success(
+        `Welcome back, ${res.data.user.username}!`
+      )
+
       navigate('/dashboard')
+
     } catch (err) {
-      // This logs the full error so we can see exactly what happened
-      console.error('Login error full object:', err)
-      console.error('Response data:', err.response?.data)
-      console.error('Response status:', err.response?.status)
+
+      console.error(err)
 
       const message =
         err.response?.data?.message ||
         err.message ||
-        'Login failed. Please try again.'
+        'Login failed'
 
       toast.error(message)
+
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#0d1117] flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen auth-bg relative overflow-hidden flex items-center justify-center px-4">
+
+      {/* Background glow */}
+      <div className="absolute top-[-120px] left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-blue-600/10 blur-3xl rounded-full pointer-events-none" />
+
+      {/* Top back button */}
+      <div className="absolute top-6 left-6">
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#30363d] bg-[#161b22]/80 backdrop-blur-md text-gray-300 hover:text-white hover:border-blue-500 transition-all duration-200"
+        >
+          <span>←</span>
+          <span className="text-sm font-medium">
+            Back to home
+          </span>
+        </button>
+      </div>
+
+      <div className="w-full max-w-md relative z-10">
 
         {/* Logo */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white">
-            Dev<span className="text-blue-500">Collab</span>
+          <h1 className="text-4xl font-bold text-white tracking-tight">
+            Dev<span className="gradient-text">Collab</span>
           </h1>
-          <p className="text-gray-400 mt-2 text-sm">
+
+          <p className="text-gray-400 mt-3 text-sm">
             Real-time collaborative code review
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#161b22] border border-[#30363d] rounded-xl p-8">
-          <h2 className="text-xl font-semibold text-white mb-6">
-            Sign in to your account
-          </h2>
+        <div className="bg-[#161b22]/90 backdrop-blur-xl border border-[#30363d] rounded-2xl p-8 shadow-2xl shadow-black/40 fade-in hover:border-[#3b82f6]/40 transition-all duration-300">
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="mb-6">
+            <h2 className="text-2xl font-semibold text-white">
+              Sign in
+            </h2>
+
+            <p className="text-gray-400 text-sm mt-1">
+              Continue your collaborative workspace
+            </p>
+          </div>
+
+          <form
+            onSubmit={handleSubmit}
+            className="space-y-5"
+          >
 
             {/* Email */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5">
+              <label className="block text-sm text-gray-400 mb-2">
                 Email
               </label>
+
               <input
                 type="email"
                 name="email"
@@ -87,22 +131,23 @@ const LoginPage = () => {
                 onChange={handleChange}
                 placeholder="you@example.com"
                 autoComplete="off"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
               />
             </div>
 
             {/* Password */}
             <div>
-              <label className="block text-sm text-gray-400 mb-1.5">
+              <label className="block text-sm text-gray-400 mb-2">
                 Password
               </label>
+
               <input
                 type="password"
                 name="password"
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="your password"
-                className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-4 py-2.5 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded-xl px-4 py-3 text-white placeholder-gray-600 text-sm focus:outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all"
               />
             </div>
 
@@ -110,7 +155,7 @@ const LoginPage = () => {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium py-2.5 rounded-lg text-sm transition-colors mt-2 flex items-center justify-center gap-2"
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-800 disabled:cursor-not-allowed text-white font-medium py-3 rounded-xl text-sm transition-all duration-200 flex items-center justify-center gap-2 shadow-lg shadow-blue-600/20"
             >
               {loading ? (
                 <>
@@ -125,12 +170,12 @@ const LoginPage = () => {
           </form>
         </div>
 
-        {/* Link to register */}
+        {/* Bottom link */}
         <p className="text-center text-gray-500 text-sm mt-6">
           Don't have an account?{' '}
           <Link
             to="/register"
-            className="text-blue-500 hover:text-blue-400 transition-colors"
+            className="text-blue-500 hover:text-blue-400 transition-colors font-medium"
           >
             Create one
           </Link>

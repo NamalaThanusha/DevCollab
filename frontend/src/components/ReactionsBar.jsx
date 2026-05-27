@@ -31,7 +31,7 @@ const ReactionsBar = ({
   const [loading, setLoading] =
     useState(false)
 
-  // Load reactions
+  // LOAD REACTIONS
   useEffect(() => {
 
     if (!snippetId) return
@@ -60,13 +60,12 @@ const ReactionsBar = ({
 
   }, [snippetId])
 
-  // Socket listeners
+  // SOCKET LISTENER
   useEffect(() => {
 
     if (!socket) return
 
-    socket.on(
-      'reactions-updated',
+    const handleUpdatedReactions =
       ({
         reactions:
           updatedReactions,
@@ -76,31 +75,26 @@ const ReactionsBar = ({
           updatedReactions
         )
       }
+
+    socket.on(
+      'reactions-updated',
+      handleUpdatedReactions
     )
 
-    // Cleanup
     return () => {
 
       socket.off(
-        'reactions-updated'
+        'reactions-updated',
+        handleUpdatedReactions
       )
     }
 
   }, [socket])
 
-  // Toggle reaction
+  // TOGGLE REACTION
   const handleToggle = async (
     emoji
   ) => {
-
-    if (!user) {
-
-      toast.error(
-        'Sign in to react'
-      )
-
-      return
-    }
 
     setLoading(true)
 
@@ -111,7 +105,6 @@ const ReactionsBar = ({
         { emoji }
       )
 
-      // Refresh reactions
       const res =
         await getReactions(
           snippetId
@@ -124,7 +117,7 @@ const ReactionsBar = ({
         updatedReactions
       )
 
-      // Broadcast
+      // REALTIME BROADCAST
       if (socket) {
 
         socket.emit(
@@ -137,11 +130,13 @@ const ReactionsBar = ({
         )
       }
 
-    } catch {
+    } catch (err) {
 
-      toast.error(
+      const message =
+        err.response?.data?.message ||
         'Failed to update reaction'
-      )
+
+      toast.error(message)
 
     } finally {
 
@@ -149,7 +144,7 @@ const ReactionsBar = ({
     }
   }
 
-  // Emoji data
+  // EMOJI STATE
   const getEmojiData = (
     emoji
   ) => {
@@ -164,7 +159,7 @@ const ReactionsBar = ({
       user
         ? emojiReactions.some(
             (r) =>
-              r.author.id ===
+              r.author?.id ===
               user.id
           )
         : false
@@ -199,15 +194,16 @@ const ReactionsBar = ({
             }
             disabled={loading}
             title={
-              !user
-                ? 'Sign in to react'
-                : userReacted
-                  ? 'Remove reaction'
-                  : 'Add reaction'
+              userReacted
+                ? 'Remove reaction'
+                : 'Add reaction'
             }
             className={`
-              flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm
-              border transition-all duration-150 disabled:cursor-not-allowed
+              flex items-center gap-1.5
+              px-2.5 py-1 rounded-full
+              text-sm border
+              transition-all duration-150
+              disabled:cursor-not-allowed
               ${
                 userReacted
                   ? 'bg-blue-500/20 border-blue-500/50 text-blue-300'
@@ -221,9 +217,11 @@ const ReactionsBar = ({
             </span>
 
             {count > 0 && (
+
               <span className="text-xs font-medium">
                 {count}
               </span>
+
             )}
 
           </button>

@@ -8,7 +8,7 @@ const setupSocket = (io) => {
       `[Socket] Connected: ${socket.id}`
     )
 
-    // Join snippet room
+    // JOIN SNIPPET
     socket.on(
       'join-snippet',
       ({ snippetId, username }) => {
@@ -19,38 +19,29 @@ const setupSocket = (io) => {
           `[Socket] ${username} joined ${snippetId}`
         )
 
-        // Viewer count
-        const room =
-          io.sockets.adapter.rooms.get(
-            snippetId
-          )
-
+        // GLOBAL VIEWER COUNT
         const count =
-          room ? room.size : 0
+          io.engine.clientsCount
 
-        io.to(snippetId).emit(
+        io.emit(
           'viewer-count',
           { count }
         )
       }
     )
 
-    // Leave room
+    // LEAVE SNIPPET
     socket.on(
       'leave-snippet',
       ({ snippetId }) => {
 
         socket.leave(snippetId)
 
-        const room =
-          io.sockets.adapter.rooms.get(
-            snippetId
-          )
-
+        // GLOBAL VIEWER COUNT
         const count =
-          room ? room.size : 0
+          io.engine.clientsCount
 
-        io.to(snippetId).emit(
+        io.emit(
           'viewer-count',
           { count }
         )
@@ -62,7 +53,8 @@ const setupSocket = (io) => {
       'new-comment',
       ({ snippetId, comment }) => {
 
-        socket.to(snippetId).emit(
+        // SEND TO EVERYONE
+        io.emit(
           'comment-added',
           comment
         )
@@ -72,9 +64,10 @@ const setupSocket = (io) => {
     // REALTIME REACTIONS
     socket.on(
       'reaction-toggled',
-      ({ snippetId, reactions }) => {
+      ({ reactions }) => {
 
-        socket.to(snippetId).emit(
+        // SEND TO EVERYONE
+        io.emit(
           'reactions-updated',
           { reactions }
         )
@@ -87,6 +80,15 @@ const setupSocket = (io) => {
 
         console.log(
           `[Socket] Disconnected: ${socket.id}`
+        )
+
+        // UPDATE VIEWER COUNT
+        const count =
+          io.engine.clientsCount
+
+        io.emit(
+          'viewer-count',
+          { count }
         )
       }
     )
