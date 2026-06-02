@@ -18,10 +18,23 @@ dotenv.config()
 
 const app = express()
 
+// Required for Render / reverse proxies
+app.set('trust proxy', 1)
+
 const httpServer = createServer(app)
 
 const io = new Server(httpServer, {
-  cors: corsOptions,
+  cors: {
+    origin: [
+      'http://localhost:5173',
+      'http://localhost:3000',
+      process.env.CLIENT_URL,
+    ].filter(Boolean),
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+  pingTimeout: 60000,
+  pingInterval: 25000,
 })
 
 // Middleware
@@ -37,9 +50,12 @@ app.use('/api/ai', aiRoutes)
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'OK',
-    message: 'DevCollab server running 🚀',
+    environment:
+      process.env.NODE_ENV || 'development',
+    timestamp:
+      new Date().toISOString(),
   })
 })
 
@@ -50,6 +66,6 @@ const PORT = process.env.PORT || 5000
 
 httpServer.listen(PORT, () => {
   console.log(
-    `🚀 Server running on http://localhost:${PORT}`
+    `🚀 Server running on port ${PORT}`
   )
 })

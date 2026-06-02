@@ -13,15 +13,19 @@ const useSocket = (snippetId, username) => {
     if (!snippetId) return
 
     // Connect to backend socket server
-    socketRef.current = io(
-      'http://localhost:5000',
-      {
-        transports: [
-          'websocket',
-          'polling',
-        ],
-      }
-    )
+    const socketURL =
+  import.meta.env.VITE_SOCKET_URL ||
+  'http://localhost:5000'
+
+socketRef.current = io(
+  socketURL,
+  {
+    transports: [
+      'websocket',
+      'polling',
+    ],
+  }
+)
 
     const socket = socketRef.current
 

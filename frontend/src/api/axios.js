@@ -1,33 +1,47 @@
 import axios from 'axios'
 
+const baseURL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api`
+  : '/api'
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL,
 })
 
-// Attach JWT token to every request automatically
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
+
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    config.headers.Authorization =
+      `Bearer ${token}`
   }
+
   return config
 })
 
-// Handle responses globally
 api.interceptors.response.use(
   (response) => response,
+
   (error) => {
-    const status = error.response?.status
-    const url = error.config?.url || ''
+    const status =
+      error.response?.status
 
-    // Only redirect to login on 401 if it's NOT the login or register route
-    // If we redirect during login, the toast never shows
-    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/register')
+    const url =
+      error.config?.url || ''
 
-    if (status === 401 && !isAuthRoute) {
+    const isAuthRoute =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register')
+
+    if (
+      status === 401 &&
+      !isAuthRoute
+    ) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+
+      window.location.href =
+        '/login'
     }
 
     return Promise.reject(error)

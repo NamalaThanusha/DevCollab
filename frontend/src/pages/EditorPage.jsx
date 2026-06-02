@@ -103,9 +103,10 @@ const EditorPage = () => {
   useEffect(() => {
     if (isNew || !snippetRoomId) return
 
-    const socket = io('http://localhost:5000', {
-      transports: ['websocket', 'polling'],
-    })
+    const socketURL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
+const socket = io(socketURL, {
+  transports: ['websocket', 'polling'],
+})
 
     socketRef.current = socket
 
